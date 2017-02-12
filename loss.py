@@ -1,5 +1,5 @@
 # Author: Vlad Niculae <vlad@vene.ro>
-# License: Simplified BSD
+# License: BSD 3 clause
 
 import numpy as np
 

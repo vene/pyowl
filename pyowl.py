@@ -1,5 +1,5 @@
 # Author: Vlad Niculae <vlad@vene.ro>
-# License: Simplified BSD
+# License: BSD 3 clause
 
 from __future__ import print_function
 from __future__ import division
