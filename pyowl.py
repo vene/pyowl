@@ -1,6 +1,9 @@
 # Author: Vlad Niculae <vlad@vene.ro>
 # License: Simplified BSD
 
+from __future__ import print_function
+from __future__ import division
+
 import numpy as np
 
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
@@ -44,7 +47,6 @@ def _oscar_weights(alpha, beta, size):
     return w
 
 
-
 def _fit_owl_fista(X, y, w, loss, max_iter=500, max_linesearch=20, eta=2.0,
                    tol=1e-3, verbose=0):
 
@@ -67,6 +69,52 @@ def _fit_owl_fista(X, y, w, loss, max_iter=500, max_linesearch=20, eta=2.0,
 
 
 class _BaseOwl(BaseEstimator):
+    """
+
+    Solves sum loss(y_pred, y) + sum_j weights_j |coef|_(j)
+           where u_(j) is the jth largest component of the vector u.
+           and weights is a monotonic nonincreasing vector.
+
+    OWL is also known as: sorted L1 norm, SLOPE
+
+    Parameters
+    ----------
+
+    weights: array, shape (n_features,) or tuple, length 2
+        Nonincreasing weights vector for the ordered weighted L1 penalty.
+        If weights = (alpha, 0, 0, ..., 0), this amounts to a L_inf penalty.
+        If weights = alpha * np.ones(n_features) it amounts to L1.
+        If weights is a tuple = (alpha, beta), the OSCAR penalty is used::
+            alpha ||coef||_1 + beta sum_{i<j} max{|x_i|, |x_j|)
+        by computing the corresponding `weights` vector as::
+            weights_i = alpha + beta(n_features - i - 1)
+
+    loss: string, default: "squared"
+        Loss function to use, see loss.py to add your own.
+
+    max_iter: int, default: 500
+        Maximum FISTA iterations.
+
+    max_linesearch: int, default: 20
+        Maximum number of FISTA backtracking line search steps.
+
+    eta: float, default: 2
+        Amount by which to increase step size in FISTA bactracking line search.
+
+    tol: float, default: 1e-3
+        Tolerance for the convergence criterion.
+
+    verbose: int, default 0:
+        Degree of verbosity to print from the solver.
+
+    References
+    ----------
+        X. Zeng, M. Figueiredo,
+        The ordered weighted L1 norm: Atomic formulation, dual norm,
+        and projections.
+        eprint http://arxiv.org/abs/1409.4271
+    """
+
     def __init__(self, weights, loss='squared', max_iter=500,
                  max_linesearch=20, eta=2.0, tol=1e-3, verbose=0):
         self.weights = weights
@@ -97,6 +145,9 @@ class _BaseOwl(BaseEstimator):
 
 
 class OwlRegressor(_BaseOwl, RegressorMixin):
+    """Ordered Weighted L1--penalized (OWL) regression solved by FISTA"""
+    __doc__ += _BaseOwl.__doc__
+
     def get_loss(self):
         if self.loss != 'squared':
             raise NotImplementedError('Only regression loss implemented '
@@ -109,13 +160,15 @@ class OwlRegressor(_BaseOwl, RegressorMixin):
 
 
 class OwlClassifier(_BaseOwl, ClassifierMixin):
+    """Ordered Weighted L1--penalized (OWL) classification solved by FISTA"""
+    __doc__ += _BaseOwl.__doc__
     def get_loss(self):
         return get_loss(self.loss)
 
     def fit(self, X, y):
         self.lb_ = LabelBinarizer(neg_label=-1)
         y_ = self.lb_.fit_transform(y).ravel()
-        return super().fit(X, y_)
+        return super(OwlClassifier, self).fit(X, y_)
 
     def decision_function(self, X):
         return self._decision_function(X)
@@ -130,10 +183,11 @@ if __name__ == '__main__':
     from sklearn.model_selection import train_test_split
     from sklearn.datasets import load_boston, load_breast_cancer
 
-    print("OSCAR on toy example:")
+    print("OSCAR proximal operator on toy example:")
     v = np.array([1, 3, 2.9, 4, 0])
     w_oscar = _oscar_weights(alpha=0.01, beta=1, size=5)
     print(prox_owl(v, w_oscar))
+    print()
 
     print("Regression")
     X, y = load_boston(return_X_y=True)
@@ -142,8 +196,8 @@ if __name__ == '__main__':
     clf = OwlRegressor(weights=(1, 100))
     clf.fit(X_tr, y_tr)
     print("Correlated coefs", clf.coef_[0], clf.coef_[-1])
-
     print("Test score", clf.score(X_te, y_te))
+    print()
 
     print("Classification")
     X, y = load_breast_cancer(return_X_y=True)
